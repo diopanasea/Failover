@@ -1,0 +1,67 @@
+---
+- name: MySQL Failover and Promote Slave
+  hosts: all
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Stop MySQL Service on Current Master
+      service:
+        name: mysql
+        state: stopped
+      when: inventory_hostname == "192.168.56.123"
+
+    - name: Stop Replica IO Thread on Slave Primary
+      mysql_replication:
+        mode: stopreplica
+      when: inventory_hostname == "192.168.56.124"
+
+    - name: Stop Replica IO Thread on Slave Secomdary
+      mysql_replication:
+        mode: stopreplica
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Promote Slave to New Master
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^server-id.*'
+        line: 'server-id = 1' 
+      when: inventory_hostname == "192.168.56.124"
+
+    - name: Start MySQL Service on New Master
+      service:
+        name: mysql
+        state: started
+      when: inventory_hostname == "192.168.56.124"
+
+    - name: Update Replication Settings for Slave Secondary
+      mysql_replication:
+        mode: resetreplica
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Set New Master as Primary for Slave Secondary
+      mysql_replication:
+        mode: changeprimary
+        primary_host: "192.168.56.124"
+        primary_user: "replica"
+        primary_password: "Dio140998:)"
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Start Replication on Slave Secondary
+      mysql_replication:
+        mode: startreplica
+      when: inventory_hostname == "192.168.56.125"
+
+- name: Grant Access to Replica User
+  hosts: 192.168.56.124
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Grant Access to Replica User
+      mysql_user:
+        name: replica
+        host: "%"
+        password: "Dio140998:)"
+        priv: "*.*:ALL,GRANT"
+        state: present
