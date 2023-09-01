@@ -1,6 +1,6 @@
 ---
 - name: MySQL Failover Automation
-  hosts: all
+  hosts: Failover Inventory
   become: yes
   become_method: sudo
 
