@@ -1,0 +1,71 @@
+---
+- name: MySQL Failover Automation
+  hosts: all
+  become: yes
+  become_method: sudo
+
+  tasks:
+    - name: Stop MySQL Service on Master
+      service:
+        name: mysql
+        state: stopped
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Change MySQL Config for Master
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - { regexp: '^server-id.*', line: 'server-id = 5' }
+        - { regexp: '^bind-address.*', line: 'bind-address = 0.0.0.0' }
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Change MySQL Config for Slave Primary
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - { regexp: '^server-id.*', line: 'server-id = 4' }
+        - { regexp: '^bind-address.*', line: 'bind-address = 0.0.0.0' }
+      when: inventory_hostname == "192.168.56.123"
+
+    - name: Change MySQL Config for Slave Secondary
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      with_items:
+        - { regexp: '^server-id.*', line: 'server-id = 6' }
+        - { regexp: '^bind-address.*', line: 'bind-address = 0.0.0.0' }
+      when: inventory_hostname == "192.168.56.124"
+
+    - name: Start MySQL Service on Master
+      service:
+        name: mysql
+        state: started
+      when: inventory_hostname == "192.168.56.125"
+
+    - name: Stop Replica IO Thread on Slaves
+      mysql_replication:
+        mode: stopreplica
+      when: inventory_hostname in ["192.168.56.123", "192.168.56.124"]
+
+    - name: Remove Replication Settings on Slave Servers
+      mysql_replication:
+        mode: resetreplica
+      when: inventory_hostname in ["192.168.56.123", "192.168.56.124"]
+
+    - name: Reset Slave on New Master
+      mysql_replication:
+        mode: changeprimary
+        primary_host: "192.168.56.125"
+        primary_user: "replica"
+        primary_password: "Dio140998:)"
+      when: inventory_hostname in ["192.168.56.123", "192.168.56.124"]
+
+    - name: Start Replica IO Thread on Slaves
+      mysql_replication:
+        mode: startreplica
+      when: inventory_hostname in ["192.168.56.123", "192.168.56.124"]
