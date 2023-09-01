@@ -1,6 +1,9 @@
 ---
 - name: MySQL Failover and Promote Slave
-  hosts: all
+  hosts: 
+    - 192.168.56.123
+    - 192.168.56.124
+    - 192.168.56.125
   become: yes
   become_method: sudo
 
@@ -16,7 +19,7 @@
         mode: stopreplica
       when: inventory_hostname == "192.168.56.124"
 
-    - name: Stop Replica IO Thread on Slave Secomdary
+    - name: Stop Replica IO Thread on Slave Secondary
       mysql_replication:
         mode: stopreplica
       when: inventory_hostname == "192.168.56.125"
